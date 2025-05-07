@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cotton Mixing Results Trend Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .flatpickr-input {
+            font-family: 'Inter', sans-serif;
+        }
+
+        #dataTable {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* --- Fullscreen Modal Styles --- */
+        /* Ensure the modal is fixed and covers the whole screen */
+        #chartModal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            /* Semi-transparent black background */
+            z-index: 100;
+            /* Ensure it's on top */
+            display: none;
+            /* Initially hidden */
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* Add the 'flex' class to show the modal */
+        #chartModal.flex {
+            display: flex;
+        }
+
+
+        #chartModal .modal-content {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            position: relative;
+            max-width: 95%; /* Adjust max width for larger screens */
+            max-height: 95vh; /* Adjust max height */
+            width: 100%; /* Allow content to dictate width up to max */
+            height: 100%; /* Allow content to dictate height up to max */
+            display: flex; /* Use flex to manage canvas size */
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #chartModal .close-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #555;
+            background: none;
+            border: none;
+            padding: 0;
+            line-height: 1;
+        }
+
+        #expandedChart {
+            width: 100% !important; /* Important to override default canvas size */
+            height: 100% !important;
+            max-width: 100%;
+            max-height: 100%;
+        }
+        /* --- End Fullscreen Modal Styles --- */
+
+         /* Sticky table header and first column */
+         #tableContainer .overflow-x-auto {
+             max-height: 70vh; /* Adjust as needed */
+             overflow: auto;
+         }
+
+         #dataTable th,
+         #dataTable td {
+             white-space: nowrap; /* Prevent text wrapping in cells */
+             min-width: 80px; /* Minimum width for cells */
+         }
+
+
+         #dataTable th.sticky {
+             position: sticky;
+             top: 0; /* Stick to the top */
+             z-index: 20; /* Ensure it's above tbody but below modal */
+         }
+
+         #dataTable td.sticky {
+             position: sticky;
+             left: 0; /* Stick to the left */
+             z-index: 15; /* Ensure it's above other td but below sticky th */
+         }
+    </style>
+</head>
+
+<body class="bg-gray-100 p-6">
+    <div class="max-w-7xl mx-auto">
+        <div class="flex items-center mb-2">
+            <img src="https://www.sagarmanufacturers.com/assets/web/images/smpl-new-logo.png" alt="Company Logo"
+                class="h-12 mr-4">
+            <h1 class="text-3xl font-bold text-blue-800">Sagar Manufacturers Pvt. Ltd.</h1>
+        </div>
+        <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">Cotton Mixing Results Trend Dashboard</h2>
+
+       <div class="flex justify-between items-center gap-4 mb-4">
+            <div class="flex-grow mr-4"> <label for="fileInput" class="block mb-1 text-gray-700">Upload Excel File:</label>
+                 <input type="file" id="fileInput" accept=".xlsx, .xls"
+                        class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none p-2"> </div>
+             <button onclick="goBack()"
+                class="px-4 py-2 bg-blue-500 font-bold text-white rounded shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                ← Home
+            </button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div>
+                <label for="fromDateFilter" class="block mb-1 text-gray-700">From Date</label>
+                <input type="text" id="fromDateFilter"
+                    class="p-2 border rounded w-full flatpickr shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900">
+            </div>
+            <div>
+                <label for="toDateFilter" class="block mb-1 text-gray-700">To Date</label>
+                <input type="text" id="toDateFilter"
+                    class="p-2 border rounded w-full flatpickr shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900">
+            </div>
+            <div>
+                <label for="reportTypeFilter" class="block mb-1 text-gray-700">Report Type</label>
+                <select id="reportTypeFilter"
+                    class="p-2 border rounded w-full shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900">
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="yearly">Yearly</option>
+                </select>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div>
+                <label for="unitFilter" class="block mb-1 text-gray-700">Unit</label>
+                <select id="unitFilter"
+                    class="p-2 border rounded w-full shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"></select>
+            </div>
+            <div>
+                <label for="lineFilter" class="block mb-1 text-gray-700">Line</label>
+                <select id="lineFilter"
+                    class="p-2 border rounded w-full shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"></select>
+            </div>
+            <div>
+                <label for="cottonFilter" class="block mb-1 text-gray-700">Cotton</label>
+                <select id="cottonFilter"
+                    class="p-2 border rounded w-full shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"></select>
+            </div>
+        </div>
+
+        <div class="mb-4 flex items-center justify-center">
+            <label class="mr-4 font-medium text-gray-700">View:</label>
+            <div class="inline-flex rounded-md shadow-sm" role="group">
+                <button id="chartViewBtn" onclick="switchView('chart')"
+                    class="px-4 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-l-lg hover:bg-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none">Chart</button>
+                <button id="tableViewBtn" onclick="switchView('table')"
+                    class="px-4 py-2 text-sm font-medium text-gray-900 bg-white border-y border-gray-200 hover:bg-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none">Table</button>
+                <div class="relative">
+                    <button id="downloadDropdownBtn"
+                        class="px-4 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-r-lg hover:bg-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        &#11015;
+                    </button>
+                    <div id="downloadOptions" class="absolute right-0 mt-2 w-40 bg-white rounded-md shadow-lg z-10 hidden">
+                        <button onclick="downloadData('chart1')"
+                            class="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">Download
+                            Chart 1</button>
+                        <button onclick="downloadData('chart2')"
+                            class="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">Download
+                            Chart 2</button>
+                        <button onclick="downloadData('table')"
+                            class="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">Download
+                            Table</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="chartContainer" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-white p-4 rounded shadow-md relative">
+                <h2 class="font-semibold mb-2 text-gray-800">Chart 1: UHML, SFI, Trash, RD</h2>
+                <button id="expandChart1Btn" onclick="expandChart('chart1')"
+                    class="absolute top-2 right-2 text-gray-500 hover:text-black text-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide lucude-maximize-2">
+                        <path d="M4 14v6a2 2 0 0 0 2 2h6" />
+                        <path d="M10 10l4-4" />
+                        <path d="M15 15l-4-4" />
+                        <path d="M14 4h6a2 2 0 0 1 2 2v6" />
+                    </svg>
+                </button>
+                <canvas id="chart1"></canvas>
+            </div>
+            <div class="bg-white p-4 rounded shadow-md relative">
+                <h2 class="font-semibold mb-2 text-gray-800">Chart 2: STR, MIC, Mois</h2>
+                <button id="expandChart2Btn" onclick="expandChart('chart2')"
+                    class="absolute top-2 right-2 text-gray-500 hover:text-black text-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide lucide-maximize-2">
+                        <path d="M4 14v6a2 2 0 0 0 2 2h6" />
+                        <path d="M10 10l4-4" />
+                        <path d="M15 15l-4-4" />
+                        <path d="M14 4h6a2 2 0 0 1 2 2v6" />
+                    </svg>
+                </button>
+                <canvas id="chart2"></canvas>
+            </div>
+        </div>
+
+        <div id="tableContainer" class="bg-white p-4 rounded shadow-md hidden">
+            <h2 class="font-semibold mb-2 text-gray-800">Data Table</h2>
+            <div class="overflow-x-auto">
+                <table id="dataTable" class="min-w-full divide-y divide-gray-200 table-auto border border-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr></tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="chartModal" class="hidden">
+        <div class="modal-content">
+             <button onclick="closeModal()" class="close-button">✕</button>
+            <canvas id="expandedChart"></canvas>
+        </div>
+    </div>
+    <script>
+        flatpickr(".flatpickr", {
+            dateFormat: "Y-m-d",
+        });
+
+        let rawData = [];
+        let chartInstances = {}; // Stores instances for chart1 and chart2
+        let currentView = 'chart'; // Default view
+        let expandedChartInstance = null; // Global variable for the fullscreen chart instance
+
+        // Register the data labels plugin
+        Chart.register(ChartDataLabels);
+
+        const unitFilterEl = document.getElementById('unitFilter');
+        const lineFilterEl = document.getElementById('lineFilter');
+        const cottonFilterEl = document.getElementById('cottonFilter');
+        const fromDateFilterEl = document.getElementById('fromDateFilter');
+        const toDateFilterEl = document.getElementById('toDateFilter');
+        const reportTypeFilterEl = document.getElementById('reportTypeFilter');
+        const downloadDropdownBtn = document.getElementById('downloadDropdownBtn');
+        const downloadOptions = document.getElementById('downloadOptions');
+        const chartModal = document.getElementById('chartModal');
+        const expandedChartCanvas = document.getElementById('expandedChart');
+        const fileInput = document.getElementById('fileInput'); // Get file input element
+
+
+        reportTypeFilterEl.addEventListener('change', renderData);
+        unitFilterEl.addEventListener('change', renderData);
+        lineFilterEl.addEventListener('change', renderData);
+        cottonFilterEl.addEventListener('change', renderData);
+        fromDateFilterEl.addEventListener('change', renderData);
+        toDateFilterEl.addEventListener('change', renderData);
+
+        downloadDropdownBtn.addEventListener('click', () => {
+            downloadOptions.classList.toggle('hidden');
+        });
+
+        // Close dropdown if clicked outside
+        document.addEventListener('click', (event) => {
+            if (!downloadDropdownBtn.contains(event.target) && !downloadOptions.contains(event.target)) {
+                downloadOptions.classList.add('hidden');
+            }
+        });
+
+        // Add event listener for the file input
+        fileInput.addEventListener('change', handleFileUpload);
+
+
+        function excelDateToJSDate(serial) {
+            const utc_days = Math.floor(serial - 25569);
+            const utc_value = utc_days * 86400;
+            const date_info = new Date(utc_value * 1000);
+            return new Date(date_info.getFullYear(), date_info.getMonth(), date_info.getDate());
+        }
+
+         function handleFileUpload(event) {
+             const file = event.target.files[0];
+             if (!file) {
+                 return;
+             }
+
+             const reader = new FileReader();
+             reader.onload = async (e) => {
+                 const arrayBuffer = e.target.result;
+                 await processData(arrayBuffer); // Pass arrayBuffer to processData
+             };
+             reader.onerror = (error) => {
+                 console.error("FileReader error:", error);
+                 alert("Error reading the file.");
+             };
+             reader.readAsArrayBuffer(file);
+         }
+
+
+        async function processData(arrayBuffer) {
+            if (!arrayBuffer) {
+                console.log("ArrayBuffer is null or undefined.");
+                return;
+            }
+            console.log("Processing ArrayBuffer:", arrayBuffer);
+            try {
+                const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+                console.log("Workbook read successfully:", workbook);
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                console.log("Sheet:", sheet);
+                // Use header: 1 to get array of arrays first to check headers
+                 const sheetDataAsArrays = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                console.log("Raw Data (arrays) after sheet_to_json:", sheetDataAsArrays);
+
+                // Check for header row
+                if (!sheetDataAsArrays || sheetDataAsArrays.length === 0 || !Array.isArray(sheetDataAsArrays[0])) {
+                    alert('Error: The Excel file is empty or contains invalid data.');
+                     rawData = []; // Clear previous data
+                     populateFilters(); // Clear filters
+                     renderData(); // Render empty state
+                    return;
+                }
+
+                // Get headers and filter out invalid ones
+                 const headers = sheetDataAsArrays[0].map(h => h ? String(h).trim() : '').filter(h => h !== ''); // Ensure headers are strings and not empty
+
+                 if (headers.length === 0) {
+                     alert('Error: Could not detect headers in the Excel file.');
+                     rawData = []; // Clear previous data
+                     populateFilters(); // Clear filters
+                     renderData(); // Render empty state
+                     return;
+                 }
+
+                // Convert to object format using the cleaned headers
+                rawData = XLSX.utils.sheet_to_json(sheet, { header: headers });
+                console.log("Raw Data (objects) after sheet_to_json:", rawData);
+
+
+                // Process date and ensure key fields are strings
+                rawData = rawData.map(row => {
+                    const obj = { ...row }; // Create a copy
+
+                    // Process ISSUE_DATE
+                    try {
+                         const dateValue = row.ISSUE_DATE;
+                        if (typeof dateValue === 'number') {
+                            obj.ISSUE_DATE = excelDateToJSDate(dateValue);
+                        } else if (typeof dateValue === 'string') {
+                            const date = new Date(dateValue);
+                            obj.ISSUE_DATE = isNaN(date.getTime()) ? null : date;
+                        } else {
+                            obj.ISSUE_DATE = null;
+                        }
+                    } catch {
+                        obj.ISSUE_DATE = null;
+                    }
+
+                     // Ensure other key fields are converted to strings and trimmed
+                    if (obj.UNIT !== undefined && obj.UNIT !== null) obj.UNIT = String(obj.UNIT).trim(); else obj.UNIT = '';
+                    if (obj.LINE !== undefined && obj.LINE !== null) obj.LINE = String(obj.LINE).trim(); else obj.LINE = '';
+                    if (obj.COTTON !== undefined && obj.COTTON !== null) obj.COTTON = String(obj.COTTON).trim(); else obj.COTTON = '';
+
+                    return obj;
+                }).filter(r => r.ISSUE_DATE); // Filter out rows with missing or invalid dates
+
+                console.log("Raw Data after date and key processing:", rawData); // Inspect rawData
+
+                // Check for required columns
+                const requiredColumns = ['UNIT', 'LINE', 'COTTON', 'ISSUE_DATE', 'Avg_UHML', 'Avg_SFI', 'Avg_Trash',
+                    'Avg_RD', 'Avg_STR', 'Avg_MIC', 'Avg_Mois'
+                ];
+                const missingColumns = requiredColumns.filter(col => !headers.includes(col));
+
+                if (missingColumns.length > 0) {
+                    alert(
+                        `Warning: The Excel file is missing the following columns which might affect the display: ${missingColumns.join(', ')}`);
+                     // Continue processing even with missing optional columns, but alert the user
+                }
+
+                 if (rawData.length === 0) {
+                     alert('No valid data rows found after processing.');
+                     rawData = []; // Ensure rawData is empty
+                     populateFilters(); // Clear filters
+                     renderData(); // Render empty state
+                     return;
+                 }
+
+
+                populateFilters();
+                renderData(); // Initial data rendering
+
+            } catch (error) {
+                console.error("Error during data processing:", error);
+                alert("Error processing the Excel file. Please ensure it's a valid Excel file with the expected structure.");
+                 rawData = []; // Clear previous data
+                 populateFilters(); // Clear filters
+                 renderData(); // Render empty state
+            }
+        }
+
+        function populateFilters() {
+            const getUnique = (key) => {
+                const values = rawData.map(r => r[key]).filter(Boolean).map(String); // Ensure values are strings
+                return [...new Set(values)].sort();
+            };
+
+            const units = getUnique('UNIT');
+            const lines = getUnique('LINE');
+            const cottons = getUnique('COTTON');
+
+            populateSelect(unitFilterEl, units);
+            populateSelect(lineFilterEl, lines);
+            populateSelect(cottonFilterEl, cottons);
+        }
+
+        function populateSelect(selectElement, values) {
+            selectElement.innerHTML = '<option value="">All</option>';
+            values.forEach(val => {
+                const opt = document.createElement('option');
+                opt.value = val;
+                opt.textContent = val;
+                selectElement.appendChild(opt);
+            });
+        }
+
+        function switchView(viewType) {
+            currentView = viewType;
+            const chartContainer = document.getElementById('chartContainer');
+            const tableContainer = document.getElementById('tableContainer');
+             // Use Tailwind hidden class instead of style.display
+            chartContainer.classList.toggle('hidden', viewType === 'table');
+            tableContainer.classList.toggle('hidden', viewType === 'chart');
+
+            document.getElementById('chartViewBtn').classList.toggle('bg-gray-100', viewType === 'chart');
+            document.getElementById('tableViewBtn').classList.toggle('bg-gray-100', viewType === 'table');
+            renderData();
+        }
+
+        function getFilteredData() {
+            const unit = unitFilterEl.value;
+            const line = lineFilterEl.value;
+            const cotton = cottonFilterEl.value;
+            const fromDate = fromDateFilterEl.value ? new Date(fromDateFilterEl.value) : null;
+            const toDate = toDateFilterEl.value ? new Date(toDateFilterEl.value) : null;
+
+            // Set time to start/end of day for date range filtering
+            if (fromDate) fromDate.setHours(0, 0, 0, 0);
+            if (toDate) toDate.setHours(23, 59, 59, 999);
+
+
+            return rawData.filter(row => {
+                const date = row.ISSUE_DATE;
+                if (!date) return false; // Exclude rows without valid dates
+
+                const isInRange = (!fromDate || date >= fromDate) && (!toDate || date <= toDate);
+                const unitMatch = !unit || String(row.UNIT) === unit;
+                const lineMatch = !line || String(row.LINE) === line;
+                const cottonMatch = !cotton || String(row.COTTON) === cotton;
+
+
+                return unitMatch && lineMatch && cottonMatch && isInRange;
+            });
+        }
+
+        function groupData(filteredData, reportType) {
+            const grouped = {};
+            if (!filteredData || filteredData.length === 0) {
+                return {};
+            }
+            filteredData.forEach(row => {
+                const date = row.ISSUE_DATE;
+                if (!date) return; // Skip rows with missing dates
+                let key = '';
+                let sortKey = date.getTime(); // Default sort key for daily
+
+                switch (reportType) {
+                    case 'daily':
+                        key = date.toISOString().split('T')[0];
+                        sortKey = date.getTime();
+                        break;
+                    case 'weekly':
+                         // ISO week calculation
+                        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+                        const dayNum = d.getUTCDay() || 7;
+                        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+                        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+                        const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+                        key = `${d.getUTCFullYear()}-Wk${String(weekNo).padStart(2, '0')}`; // Format like YYYY-WkWW
+                        sortKey = d.getTime(); // Use the date's timestamp as sort key
+                        break;
+                    case 'monthly':
+                         const month = date.getMonth() + 1;
+                         key = `${date.getFullYear()}-${String(month).padStart(2, '0')}`; // Format YYYY-MM
+                         sortKey = new Date(date.getFullYear(), date.getMonth(), 1).getTime(); // Sort by month start date
+                        break;
+                    case 'yearly':
+                        key = date.getFullYear().toString(); // Format YYYY
+                        sortKey = new Date(date.getFullYear(), 0, 1).getTime(); // Sort by year start date
+                        break;
+                    default:
+                        key = date.toISOString().split('T')[0]; // Default to daily if reportType is unexpected
+                        sortKey = date.getTime();
+                        break;
+                }
+
+                // Group only by the period key
+                if (!grouped[key]) {
+                     grouped[key] = { data: [], sortKey: sortKey };
+                }
+                grouped[key].data.push(row);
+            });
+
+            // Sort groups by sortKey (date)
+            const sortedGroupKeys = Object.keys(grouped).sort((a, b) => grouped[a].sortKey - grouped[b].sortKey);
+
+            const sortedGrouped = {};
+            sortedGroupKeys.forEach(key => {
+                sortedGrouped[key] = grouped[key];
+            });
+
+            return sortedGrouped;
+        }
+
+
+        function calculateAverages(groupedData) {
+            const averages = [];
+            if (!groupedData || Object.keys(groupedData).length === 0) {
+                return [];
+            }
+
+            for (const periodKey in groupedData) {
+                const group = groupedData[periodKey].data; // Array of rows for this period
+                const sortKey = groupedData[periodKey].sortKey;
+
+
+                if (group.length === 0) continue; // Should not happen with current grouping, but good practice
+
+                 const averageRow = {
+                    Period: periodKey, // This will be the x-axis label (unique per period)
+                    sortKey: sortKey // Keep sort key for sorting
+                };
+
+                 const fieldsToAverage = ['Avg_UHML', 'Avg_SFI', 'Avg_Trash', 'Avg_RD', 'Avg_STR', 'Avg_MIC', 'Avg_Mois'];
+
+                 fieldsToAverage.forEach(field => {
+                    const sum = group.reduce((currentSum, row) => {
+                         const value = parseFloat(row[field]);
+                         return currentSum + (isNaN(value) ? 0 : value); // Add 0 if value is not a number
+                    }, 0);
+                    const validCount = group.filter(row => !isNaN(parseFloat(row[field]))).length; // Count only valid numbers
+                    averageRow[field] = validCount > 0 ? (sum / validCount) : 0; // Calculate average, default to 0 if no valid numbers
+                 });
+
+
+                averages.push(averageRow);
+            }
+
+             // Sort the final averages array by the sortKey
+             averages.sort((a, b) => a.sortKey - b.sortKey);
+
+             // Remove the temporary sortKey before returning
+            return averages.map(item => {
+                const { sortKey, ...rest } = item;
+                return rest;
+            });
+        }
+
+       function goBack() {
+    window.location.href = "https://pankajmehta28.github.io/my-dashboard/protected.html";
+  }
+        function renderCharts(labels, averages) {
+             // Destroy existing charts if they exist
+            if (chartInstances.chart1) chartInstances.chart1.destroy();
+            if (chartInstances.chart2) chartInstances.chart2.destroy();
+
+            // Ensure canvases exist
+            const canvas1 = document.getElementById('chart1');
+            const canvas2 = document.getElementById('chart2');
+            if (!canvas1 || !canvas2) {
+                console.error("Chart canvases not found!");
+                return;
+            }
+
+            // Use the 'Period' property from the sorted averages array as labels
+            const chartLabels = averages.map(avg => avg.Period);
+
+
+            const dataForChart1 = ['Avg_UHML', 'Avg_SFI', 'Avg_Trash', 'Avg_RD'].map(field => ({
+                label: field.replace('Avg_', ''), // Use shorter labels
+                data: chartLabels.map(period => { // Map over chartLabels (unique periods)
+                    const entry = averages.find(avg => avg.Period === period); // Find the average for this period
+                    return entry ? parseFloat(entry[field]).toFixed(1) : null; // Use null for missing data points
+                }),
+                borderWidth: 2,
+                tension: 0.4,
+                backgroundColor: getChartColor(field),
+                borderColor: getChartColor(field),
+                fill: false,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                spanGaps: true // Connect lines over null data points
+            }));
+
+            const dataForChart2 = ['Avg_STR', 'Avg_MIC', 'Avg_Mois'].map(field => ({
+                label: field.replace('Avg_', ''), // Use shorter labels
+                 data: chartLabels.map(period => { // Map over chartLabels (unique periods)
+                    const entry = averages.find(avg => avg.Period === period); // Find the average for this period
+                    return entry ? parseFloat(entry[field]).toFixed(1) : null; // Use null for missing data points
+                }),
+                borderWidth: 2,
+                tension: 0.4,
+                backgroundColor: getChartColor(field),
+                borderColor: getChartColor(field),
+                fill: false,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                 spanGaps: true
+            }));
+
+            // const reportType = reportTypeFilterEl.value; // Not needed here anymore
+
+
+            // Chart 1 Options
+            const options1 = {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) label += ': ';
+                                if (context.parsed.y !== null) label += context.parsed.y.toFixed(1);
+                                // The tooltip now shows the average for the combined filters for this period
+                                // We don't have Unit/Line/Cotton per point anymore, it's included in the overall average
+                                // Optionally, display the applied filters in the tooltip or chart title
+                                return label;
+                            }
+                        }
+                    },
+                     datalabels: {
+                        display: true,
+                        align: 'end',
+                        anchor: 'end',
+                         formatter: (value) => value !== null ? parseFloat(value).toFixed(1) : '',
+                        font: { size: 10 }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: { display: false, text: 'Period' },
+                         ticks: {
+                             autoSkip: true,
+                             maxRotation: 0,
+                             minRotation: 0,
+                             // The callback should just return the label string from the chartLabels array
+                             callback: function(value, index) {
+                                 return chartLabels[index];
+                             }
+                        },
+                         grid: { display: false }
+                    },
+                    y: {
+                        title: { display: false, text: 'Average Value' },
+                        ticks: {
+                             beginAtZero: false, // Allow y-axis not to start at zero
+                         },
+                        grid: { color: '#e0e0e0' }
+                    }
+                }
+            };
+
+            // Chart 2 Options (similar to Chart 1 options)
+            const options2 = JSON.parse(JSON.stringify(options1)); // Deep copy options
+
+            // Update the tooltip callback for Chart 2 if needed (same logic applies)
+             options2.plugins.tooltip.callbacks.label = function(context) {
+                 let label = context.dataset.label || '';
+                 if (label) label += ': ';
+                 if (context.parsed.y !== null) label += context.parsed.y.toFixed(1);
+                 return label; // No Unit/Line/Cotton info per point anymore
+             };
+
+
+            chartInstances.chart1 = new Chart(canvas1.getContext('2d'), {
+                type: 'line',
+                data: { labels: chartLabels, datasets: dataForChart1 },
+                options: options1
+            });
+
+            chartInstances.chart2 = new Chart(canvas2.getContext('2d'), {
+                type: 'line',
+                data: { labels: chartLabels, datasets: dataForChart2 },
+                options: options2
+            });
+        }
+
+
+        function getChartColor(fieldName) {
+            const colorMap = {
+                'Avg_UHML': '#1abc9c',
+                'Avg_SFI': '#3498db',
+                'Avg_Trash': '#9b59b6',
+                'Avg_RD': '#f1c40f',
+                'Avg_STR': '#e74c3c',
+                'Avg_MIC': '#34495e',
+                'Avg_Mois': '#2ecc71'
+            };
+            return colorMap[fieldName] || '#8e44ad';
+        }
+
+        function renderTable(averages) {
+            const tableHead = document.querySelector('#dataTable thead tr');
+            const tableBody = document.querySelector('#dataTable tbody');
+            tableHead.innerHTML = '';
+            tableBody.innerHTML = '';
+
+            if (!averages || averages.length === 0) { // Check if averages array is empty
+                const noDataRow = document.createElement('tr');
+                const noDataCell = document.createElement('td');
+                noDataCell.colSpan = 10; // Adjust colspan based on expected columns
+                noDataCell.textContent = 'No data available for the selected filters.';
+                noDataCell.classList.add('text-center', 'py-4', 'text-gray-500');
+                noDataRow.appendChild(noDataCell);
+                tableBody.appendChild(noDataRow);
+                return;
+            }
+
+            // Headers for the table: Period + selected filters + averaged metrics
+            const headers = ['Period'];
+             const selectedUnit = unitFilterEl.value || 'All';
+             const selectedLine = lineFilterEl.value || 'All';
+             const selectedCotton = cottonFilterEl.value || 'All';
+
+             // Only add filter columns if they are not 'All'
+             if (selectedUnit !== 'All') headers.push('Unit');
+             if (selectedLine !== 'All') headers.push('Line');
+             if (selectedCotton !== 'All') headers.push('Cotton');
+
+
+             // Add averaged metric headers from the first average object
+             if (averages.length > 0) {
+                 const firstAverageRow = averages[0];
+                 Object.keys(firstAverageRow).forEach(key => {
+                     if (key !== 'Period' && key !== 'sortKey') { // Add all other keys except Period and sortKey
+                        headers.push(key);
+                     }
+                 });
+             }
+
+
+            headers.forEach(headerText => {
+                const th = document.createElement('th');
+                th.textContent = headerText.replace(/_/g, ' ').replace(/Avg /g, ''); // Format header text
+                th.classList.add('px-4', 'py-2', 'text-left', 'font-semibold', 'text-gray-700', 'uppercase', 'tracking-wider', 'border-b', 'border-gray-200', 'border-r');
+                 if (headerText === 'Period') {
+                     th.classList.add('sticky', 'left-0', 'bg-gray-50', 'z-10');
+                 }
+                 if (headerText === headers.length -1) {
+                     th.classList.remove('border-r');
+                 }
+                tableHead.appendChild(th);
+            });
+
+            averages.forEach(rowData => { // Each row is now a period with its averages
+                const tr = document.createElement('tr');
+                 tr.classList.add('hover:bg-gray-50');
+
+                headers.forEach((header, index) => {
+                    const td = document.createElement('td');
+                    let cellValue = '-';
+
+                    if (header === 'Period') {
+                         cellValue = rowData.Period;
+                         td.classList.add('sticky', 'left-0', 'bg-white', 'z-10'); // Sticky for period column, ensure bg-white to cover
+                    } else if (header === 'Unit') {
+                         cellValue = selectedUnit; // Display selected filter value
+                    } else if (header === 'Line') {
+                         cellValue = selectedLine; // Display selected filter value
+                    } else if (header === 'Cotton') {
+                         cellValue = selectedCotton; // Display selected filter value
+                    } else if (rowData[header] !== undefined) {
+                         // For averaged metrics, format to 1 decimal place
+                        cellValue = parseFloat(rowData[header]).toFixed(1);
+                    }
+
+                    td.textContent = cellValue;
+                    td.classList.add('px-4', 'py-2', 'text-gray-900', 'border-b', 'border-gray-200', 'border-r');
+
+                     if (index === headers.length -1) {
+                         td.classList.remove('border-r');
+                     }
+                    tr.appendChild(td);
+                });
+                tableBody.appendChild(tr);
+            });
+             // Add border to the right of all cells in the last column manually
+             const lastColumnIndex = headers.length - 1;
+             tableBody.querySelectorAll('tr').forEach(row => {
+                 const cells = row.querySelectorAll('td');
+                 if (cells.length > lastColumnIndex) {
+                     cells[lastColumnIndex].classList.add('border-r');
+                 }
+             });
+
+        }
+
+
+        function renderData() {
+            const filteredData = getFilteredData();
+            const reportType = reportTypeFilterEl.value;
+            const groupedData = groupData(filteredData, reportType);
+            const averages = calculateAverages(groupedData);
+            console.log("Calculated Averages:", averages); // This should still show in the console
+
+            const labels = averages.map(avg => avg.Period); // Get labels from the sorted averages
+
+            if (currentView === 'chart') {
+                renderCharts(labels, averages);
+            } else if (currentView === 'table') {
+                renderTable(averages);
+            }
+        }
+
+        function downloadData(type) {
+            downloadOptions.classList.add('hidden');
+            if (type === 'chart1') {
+                const canvas = document.getElementById('chart1');
+                 if (!chartInstances.chart1) {
+                     alert('Chart 1 not available to download.');
+                     return;
+                 }
+                const image = chartInstances.chart1.toBase64Image('image/png', 1.0); // Use chart instance method
+                downloadImage(image, 'chart1.png');
+            } else if (type === 'chart2') {
+                const canvas = document.getElementById('chart2');
+                 if (!chartInstances.chart2) {
+                     alert('Chart 2 not available to download.');
+                     return;
+                 }
+                const image = chartInstances.chart2.toBase64Image('image/png', 1.0); // Use chart instance method
+                downloadImage(image, 'chart2.png');
+            } else if (type === 'table') {
+                 const table = document.getElementById('dataTable');
+                 // Check if the table has more than just the header row
+                 if (!table || table.querySelectorAll('tbody tr').length === 0 || table.querySelectorAll('tbody td.text-center').length > 0) {
+                     alert('No table data available to download.');
+                     return;
+                 }
+                 let csv = [];
+                 const rows = table.querySelectorAll('table tr');
+
+                 for (let i = 0; i < rows.length; i++) {
+                     const row = [], cols = rows[i].querySelectorAll('td, th');
+                     for (let j = 0; j < cols.length; j++) {
+                         let cellText = cols[j].innerText;
+                         // Escape quotes by doubling them
+                         cellText = cellText.replace(/"/g, '""');
+                         // Enclose fields containing commas or quotes in double quotes
+                         if (cellText.includes(',') || cellText.includes('"') || cellText.includes('\n')) {
+                             cellText = `"${cellText}"`;
+                         }
+                         row.push(cellText);
+                     }
+                     csv.push(row.join(','));
+                 }
+                 downloadFile(csv.join('\n'), 'cotton_mixing_table_data.csv', 'text/csv');
+             }
+        }
+
+        function downloadImage(dataUrl, filename) {
+            const a = document.createElement('a');
+            a.href = dataUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function downloadFile(data, filename, type) {
+            const file = new Blob([data], { type: type });
+            const a = document.createElement('a');
+            const url = URL.createObjectURL(file);
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(function () {
+                URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            }, 0);
+        }
+
+        // --- Modified expandChart function to recreate chart instance ---
+        function expandChart(chartId) {
+            const originalChart = chartInstances[chartId]; // Get the specific chart instance
+
+            if (!originalChart) {
+                alert(`Chart ${chartId} data not loaded or chart is not rendered yet.`);
+                return;
+            }
+
+            // Destroy the previous fullscreen chart instance if it exists
+            if (expandedChartInstance) {
+                expandedChartInstance.destroy();
+                expandedChartInstance = null;
+            }
+
+            const fullscreenCanvasContext = expandedChartCanvas.getContext('2d');
+
+            // Create a new config based on the original chart's config
+            // Use JSON.parse(JSON.stringify()) for a deep copy of options
+            const newConfig = {
+                type: originalChart.config.type,
+                data: originalChart.config.data,
+                options: JSON.parse(JSON.stringify(originalChart.config.options || {}))
+            };
+
+            // Ensure options object exists
+             if (!newConfig.options) {
+                 newConfig.options = {};
+             }
+
+            // Set options for fullscreen view
+            newConfig.options.maintainAspectRatio = false; // Allow it to fill the container
+            newConfig.options.responsive = true; // Should already be true, but good to ensure
+
+            // Optionally enhance appearance for fullscreen
+             if (newConfig.options.plugins && newConfig.options.plugins.title) {
+                  newConfig.options.plugins.title.font = { size: 20 }; // Larger title
+             }
+             if (newConfig.options.plugins && newConfig.options.plugins.legend && newConfig.options.plugins.legend.labels) {
+                  newConfig.options.plugins.legend.labels.font = { size: 14 }; // Larger legend font
+             }
+             if (newConfig.options.scales) {
+                 // Example: Larger axis tick font if needed
+                 if(newConfig.options.scales.x && newConfig.options.scales.x.ticks) newConfig.options.scales.x.ticks.font = { size: 12 };
+                 if(newConfig.options.scales.y && newConfig.options.scales.y.ticks) newConfig.options.scales.y.ticks.font = { size: 12 };
+             }
+
+
+            // Create the new fullscreen chart instance
+            expandedChartInstance = new Chart(fullscreenCanvasContext, newConfig);
+
+            // Show the modal
+            chartModal.classList.remove('hidden');
+            chartModal.classList.add('flex');
+        }
+
+        // --- Modified closeModal function to destroy chart instance ---
+        function closeModal() {
+            // Hide the modal
+            chartModal.classList.add('hidden');
+            chartModal.classList.remove('flex');
+
+            // Destroy the fullscreen chart instance
+            if (expandedChartInstance) {
+                expandedChartInstance.destroy();
+                expandedChartInstance = null; // Clear the variable
+            }
+        }
+
+        // Initial call to populate filters if data is already available (e.g., after loading from local storage)
+        // If you want to load data on page load, call handleFileUpload() here with a default file? Or just wait for user upload.
+        // Leaving it commented out means the user must upload a file first.
+
+    </script>
+</body>
+
+</html>
